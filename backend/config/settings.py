@@ -23,6 +23,15 @@ ALLOWED_HOSTS = [
 if _railway_public and _railway_public not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_railway_public)
 
+_on_railway = bool(
+    os.getenv("RAILWAY_ENVIRONMENT")
+    or os.getenv("RAILWAY_PROJECT_ID")
+    or os.getenv("RAILWAY_SERVICE_ID")
+)
+_railway_host_suffix = ".up.railway.app"
+if _on_railway and _railway_host_suffix not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_host_suffix)
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
