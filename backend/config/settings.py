@@ -137,6 +137,10 @@ if _cors_origins:
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG
 
+_cors_origin_regexes = os.getenv("CORS_ALLOWED_ORIGIN_REGEXES", "").strip()
+if _cors_origin_regexes:
+    CORS_ALLOWED_ORIGIN_REGEXES = [r.strip() for r in _cors_origin_regexes.split(",") if r.strip()]
+
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
