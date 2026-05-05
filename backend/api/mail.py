@@ -14,6 +14,17 @@ logger = logging.getLogger(__name__)
 def _mensaje_error_envio(exc: BaseException) -> str:
     raw = str(exc)
     low = raw.lower()
+    if "network is unreachable" in low or "errno 101" in low.replace(" ", ""):
+        return (
+            "No se pudo conectar al servidor SMTP (red inalcanzable). En hosting a veces falla IPv6 o el puerto. "
+            "Prueba en Railway: EMAIL_SMTP_FORCE_IPV4=1 y/o EMAIL_PORT=465 con EMAIL_USE_SSL=1 y EMAIL_USE_TLS=0; "
+            "o usa un proveedor SMTP de transaccional (SendGrid/Mailgun/Resend)."
+        )
+    if "timed out" in low or "timeout" in low:
+        return (
+            "Tiempo de espera agotado al conectar con SMTP. Revisa EMAIL_HOST/EMAIL_PORT en Railway, firewall del "
+            "proveedor y baja EMAIL_TIMEOUT si hace falta."
+        )
     if (
         "534" in raw
         or "application-specific password" in low

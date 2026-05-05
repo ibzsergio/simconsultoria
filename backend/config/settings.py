@@ -1,4 +1,5 @@
 import os
+import socket
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -164,11 +165,18 @@ else:
 
 _use_smtp = "smtp" in EMAIL_BACKEND.lower()
 if _use_smtp:
-    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
+    EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com").strip()
+    _smtp_force_ipv4 = os.getenv("EMAIL_SMTP_FORCE_IPV4", "").lower() in ("1", "true", "yes")
+    if _smtp_force_ipv4 and EMAIL_HOST:
+        try:
+            infos = socket.getaddrinfo(EMAIL_HOST, None, socket.AF_INET, socket.SOCK_STREAM)
+            EMAIL_HOST = infos[0][4][0]
+        except OSError:
+            pass
     EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
     EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in ("1", "true", "yes")
     EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() in ("1", "true", "yes")
-    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "30"))
+    EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "12"))
 else:
     EMAIL_HOST = os.getenv("EMAIL_HOST", "")
     EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))

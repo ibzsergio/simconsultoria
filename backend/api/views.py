@@ -46,8 +46,14 @@ class ContactoCrear(generics.CreateAPIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         inst = serializer.instance
-        ok_cliente, err_cliente = enviar_correo_confirmacion_contacto(inst)
-        ok_empresa, err_empresa = enviar_notificacion_empresa(inst)
+        try:
+            ok_cliente, err_cliente = enviar_correo_confirmacion_contacto(inst)
+        except Exception as exc:
+            ok_cliente, err_cliente = False, str(exc)
+        try:
+            ok_empresa, err_empresa = enviar_notificacion_empresa(inst)
+        except Exception as exc:
+            ok_empresa, err_empresa = False, str(exc)
         any_ok = ok_cliente or ok_empresa
         data = dict(serializer.data)
         data["email_cliente_ok"] = ok_cliente
