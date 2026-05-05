@@ -6,6 +6,12 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
+_railway_public = os.getenv("RAILWAY_PUBLIC_DOMAIN", "").strip()
+if _railway_public:
+    _railway_public = (
+        _railway_public.removeprefix("https://").removeprefix("http://").split("/")[0].strip()
+    )
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-change-in-production")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
 
@@ -14,6 +20,8 @@ ALLOWED_HOSTS = [
     for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if h.strip()
 ]
+if _railway_public and _railway_public not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_railway_public)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -171,3 +179,7 @@ for origin in (_cors_origins.split(",") if _cors_origins else []):
     o = origin.strip()
     if o.startswith("https://"):
         CSRF_TRUSTED_ORIGINS.append(o)
+if _railway_public:
+    _railway_origin = f"https://{_railway_public}"
+    if _railway_origin not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(_railway_origin)
