@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const MSG_EXITO = "Mensaje enviado con éxito.";
+const MSG_EXITO = "mensaje enviado";
 const MSG_EXITO_MS = 4500;
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -87,12 +87,6 @@ export default function App() {
         body: JSON.stringify(body),
       });
       const cuerpoCrudo = await res.text();
-      let data = {};
-      try {
-        data = cuerpoCrudo.trim() ? JSON.parse(cuerpoCrudo) : {};
-      } catch {
-        data = {};
-      }
       if (!res.ok) {
         setFormMsg({
           show: true,
@@ -102,49 +96,7 @@ export default function App() {
         return;
       }
       form.reset();
-      if (data.email_enviado) {
-        if (!data.email_entrega_real) {
-          setFormMsg({
-            show: true,
-            variant: "ok",
-            text:
-              "Mensaje guardado. El correo solo se muestra en la consola de Django: configura SMTP en backend/.env y reinicia el servidor.",
-          });
-        } else {
-          if (
-            data.email_cliente_ok === undefined &&
-            data.email_empresa_ok === undefined &&
-            !data.email_error_cliente &&
-            !data.email_error_empresa
-          ) {
-            setFormMsg({ show: true, variant: "success", text: MSG_EXITO });
-            return;
-          }
-          const avisos = [];
-          if (data.email_error_cliente) avisos.push(`al visitante: ${data.email_error_cliente}`);
-          if (data.email_error_empresa) avisos.push(`a la empresa: ${data.email_error_empresa}`);
-          if (avisos.length > 0) {
-            setFormMsg({
-              show: true,
-              variant: "ok",
-              text: `Mensaje guardado. Error al enviar correo: ${avisos.join(" · ")}`,
-            });
-          } else {
-            setFormMsg({ show: true, variant: "success", text: MSG_EXITO });
-          }
-        }
-      } else {
-        setFormMsg({
-          show: true,
-          variant: "err",
-          text: `Mensaje guardado, pero no se pudo enviar ningún correo. ${
-            data.email_error ||
-            data.email_error_cliente ||
-            data.email_error_empresa ||
-            "Revisa SMTP en backend/.env y el log del servidor."
-          }`,
-        });
-      }
+      setFormMsg({ show: true, variant: "success", text: MSG_EXITO });
     } catch (err) {
       const detalle =
         err instanceof TypeError
@@ -420,12 +372,7 @@ export default function App() {
         </section>
 
         <section id="contacto" className="wrap">
-          <h2>Formulario de contacto</h2>
-          <p className="section-desc">
-            Al enviar, el mensaje se guarda en el sistema de SIM y se genera un <strong>correo de confirmación</strong> a
-            la dirección que indiques. Solo llegará a tu bandeja si en el servidor Django está configurado un envío real
-            (SMTP u otro proveedor); en desarrollo suele usarse modo consola (ver mensaje tras enviar).
-          </p>
+          <h2>Contacto</h2>
           <div
             className={`msg${formMsg.show ? ` show ${formMsg.variant}` : ""}`}
             role="status"
