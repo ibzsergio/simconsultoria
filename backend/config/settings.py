@@ -58,6 +58,8 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+_database_url = os.getenv("DATABASE_URL", "").strip()
+
 _sqlite_env = os.getenv("DJANGO_USE_SQLITE", "").strip().lower()
 if _sqlite_env in ("0", "false", "no"):
     _use_sqlite = False
@@ -66,7 +68,17 @@ elif _sqlite_env in ("1", "true", "yes"):
 else:
     _use_sqlite = DEBUG
 
-if _use_sqlite:
+if _database_url:
+    import dj_database_url
+
+    DATABASES = {
+        "default": dj_database_url.config(
+            default=_database_url,
+            conn_max_age=600,
+            ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "true").lower() in ("1", "true", "yes"),
+        )
+    }
+elif _use_sqlite:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
