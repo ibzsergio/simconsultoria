@@ -1,0 +1,6 @@
+[build]
+builder = "DOCKERFILE"
+
+[deploy]
+preDeployCommand = ["python", "manage.py", "migrate", "--noinput"]
+healthcheckPath = "/api/health/"
