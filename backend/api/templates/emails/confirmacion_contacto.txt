@@ -1,0 +1,12 @@
+Hola {{ nombre_saludo }},
+
+¡Gracias por contactarnos! Hemos recibido tu mensaje:
+
+---
+{{ mensaje }}
+---
+
+Atenderemos tu solicitud de forma personalizada acorde a tu petición. Haremos todo lo posible por procesarla en un plazo de 3 días hábiles.
+
+Saludos cordiales,
+El equipo de {{ marca }}

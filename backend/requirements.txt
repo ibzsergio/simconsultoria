@@ -1,0 +1,7 @@
+django>=4.2,<5
+djangorestframework>=3.14
+django-cors-headers>=4.3
+python-dotenv>=1.0
+PyMySQL>=1.1
+cryptography>=42.0.0
+gunicorn>=21.0

@@ -1,0 +1,14 @@
+Nuevo mensaje desde el formulario web ({{ marca }})
+================================================
+
+Nombre:   {{ nombre }}
+Correo:   {{ correo }}
+Teléfono: {{ telefono }}
+Tema:     {{ tema }}
+
+Mensaje:
+---
+{{ mensaje }}
+---
+
+Enviado: {{ creado_fmt }}
