@@ -136,14 +136,20 @@ _cors_origin_regexes_raw = os.getenv("CORS_ALLOWED_ORIGIN_REGEXES", "").strip()
 
 CORS_ALLOWED_ORIGINS = []
 if _cors_origins:
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+    CORS_ALLOWED_ORIGINS = [o.strip().rstrip("/") for o in _cors_origins.split(",") if o.strip()]
+
+_frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip().rstrip("/")
+if _frontend_origin and _frontend_origin not in CORS_ALLOWED_ORIGINS:
+    CORS_ALLOWED_ORIGINS.append(_frontend_origin)
 
 _cors_regexes: list[str] = []
 if _cors_origin_regexes_raw:
     _cors_regexes.extend(r.strip() for r in _cors_origin_regexes_raw.split(",") if r.strip())
 
-if _on_railway and not DEBUG and not _cors_origins and not _cors_origin_regexes_raw:
-    _cors_regexes.append(r"^https://[\w-]+\.netlify\.app$")
+# En Railway + producción: siempre permitir *.netlify.app (sitio y deploy previews), además de CORS_ALLOWED_ORIGINS.
+_netlify_re = r"^https://[a-zA-Z0-9.-]+\.netlify\.app$"
+if _on_railway and not DEBUG and _netlify_re not in _cors_regexes:
+    _cors_regexes.append(_netlify_re)
 
 if _cors_regexes:
     CORS_ALLOWED_ORIGIN_REGEXES = _cors_regexes
@@ -152,6 +158,18 @@ if CORS_ALLOWED_ORIGINS or _cors_regexes:
     CORS_ALLOW_ALL_ORIGINS = False
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
