@@ -3,12 +3,13 @@ import { useEffect, useState } from "react";
 const MSG_EXITO = "mensaje enviado";
 const MSG_EXITO_MS = 4500;
 
-/** Desarrollo: VITE_API_URL opcional (p. ej. API remota); si vacío → proxy Vite `/api`. Producción Netlify → siempre mismo origen (`/api/...`; rewrite en netlify.toml → Railway). */
-const API_BASE = import.meta.env.PROD
-  ? ""
-  : String(import.meta.env.VITE_API_URL ?? "")
-      .trim()
-      .replace(/\/+$/, "");
+/**
+ * Con `VITE_API_URL` en Netlify → llamada directa a Railway (sin proxy Netlify); evita 504 por timeout del edge.
+ * Sin variable: dev usa `/api` vía Vite; prod usa rewrite `netlify.toml` (solo fallback).
+ */
+const API_BASE = String(import.meta.env.VITE_API_URL ?? "")
+  .trim()
+  .replace(/\/+$/, "");
 
 function mensajeErrorApi(res, cuerpoCrudo) {
   const raw = (cuerpoCrudo || "").trim();

@@ -210,9 +210,10 @@ _use_smtp = "smtp" in EMAIL_BACKEND.lower()
 _allow_smtp_contacto = (
     os.getenv("CONTACT_MAIL_ALLOW_SMTP", "").strip().lower() in ("1", "true", "yes")
 )
+# En Railway sin API de correo (Resend/SendGrid), el fallback SMTP suele colgar (IPv6/firewall) y provoca 504.
+# No depender de DEBUG: un DJANGO_DEBUG=True mal puesto en Railway reactivaba SMTP y bloqueaba el worker.
 CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK = (
     _on_railway
-    and not DEBUG
     and not EMAIL_USE_RESEND
     and not EMAIL_USE_SENDGRID
     and _use_smtp

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 from email.utils import parseaddr
@@ -13,6 +14,26 @@ from django.utils import timezone
 from .models import MensajeContacto
 
 logger = logging.getLogger(__name__)
+
+
+def _debe_evitar_smtp() -> bool:
+    """
+    SMTP desde Railway suele fallar (errno 101 / timeout) y bloquea el worker.
+    CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK viene de settings; además miramos las
+    vars de Railway por si el contenedor lleva código/settings viejos.
+    """
+    backend = (getattr(settings, "EMAIL_BACKEND", "") or "").lower()
+    if "smtp" not in backend:
+        return False
+    if getattr(settings, "CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK", False):
+        return True
+    on_railway = bool(
+        os.getenv("RAILWAY_ENVIRONMENT")
+        or os.getenv("RAILWAY_PROJECT_ID")
+        or os.getenv("RAILWAY_SERVICE_ID")
+    )
+    allow = os.getenv("CONTACT_MAIL_ALLOW_SMTP", "").strip().lower() in ("1", "true", "yes")
+    return on_railway and not allow
 
 
 def _mensaje_error_envio(exc: BaseException) -> str:
@@ -251,7 +272,7 @@ def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool
     http = _intentar_envio_https(to=to, subject=subject, text_body=text_body, html_body=html_body)
     if http is not None:
         return http
-    if getattr(settings, "CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK", False):
+    if _debe_evitar_smtp():
         return (
             False,
             "SMTP no sale bien desde Railway: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL) en Railway, "
@@ -300,7 +321,7 @@ def enviar_notificacion_empresa(instance: MensajeContacto) -> Tuple[bool, Option
     )
     if http is not None:
         return http
-    if getattr(settings, "CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK", False):
+    if _debe_evitar_smtp():
         return (
             False,
             "SMTP no sale bien desde Railway: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL) en Railway, "
