@@ -132,14 +132,26 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 _cors_origins = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+_cors_origin_regexes_raw = os.getenv("CORS_ALLOWED_ORIGIN_REGEXES", "").strip()
+
+CORS_ALLOWED_ORIGINS = []
 if _cors_origins:
     CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(",") if o.strip()]
+
+_cors_regexes: list[str] = []
+if _cors_origin_regexes_raw:
+    _cors_regexes.extend(r.strip() for r in _cors_origin_regexes_raw.split(",") if r.strip())
+
+if _on_railway and not DEBUG and not _cors_origins and not _cors_origin_regexes_raw:
+    _cors_regexes.append(r"^https://[\w-]+\.netlify\.app$")
+
+if _cors_regexes:
+    CORS_ALLOWED_ORIGIN_REGEXES = _cors_regexes
+
+if CORS_ALLOWED_ORIGINS or _cors_regexes:
+    CORS_ALLOW_ALL_ORIGINS = False
 else:
     CORS_ALLOW_ALL_ORIGINS = DEBUG
-
-_cors_origin_regexes = os.getenv("CORS_ALLOWED_ORIGIN_REGEXES", "").strip()
-if _cors_origin_regexes:
-    CORS_ALLOWED_ORIGIN_REGEXES = [r.strip() for r in _cors_origin_regexes.split(",") if r.strip()]
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
@@ -154,6 +166,10 @@ CONTACT_NOTIFY_EMAIL = os.getenv("CONTACT_NOTIFY_EMAIL", "").strip()
 _explicit_email_backend = os.getenv("EMAIL_BACKEND", "").strip()
 _has_smtp_creds = bool(EMAIL_HOST_USER and EMAIL_HOST_PASSWORD)
 _force_console = os.getenv("EMAIL_FORCE_CONSOLE", "").lower() in ("1", "true", "yes")
+
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
+RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "").strip()
+EMAIL_USE_RESEND = bool(RESEND_API_KEY) and not _force_console
 
 if _force_console:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"

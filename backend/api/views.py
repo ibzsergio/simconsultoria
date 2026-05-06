@@ -11,7 +11,9 @@ from .models import MensajeContacto
 from .serializers import MensajeContactoSerializer
 
 
-def _correo_saldría_por_smtp() -> bool:
+def _correo_entrega_fuera_consola() -> bool:
+    if getattr(settings, "EMAIL_USE_RESEND", False):
+        return True
     backend = (getattr(settings, "EMAIL_BACKEND", "") or "").lower()
     if "console" in backend or "dummy" in backend:
         return False
@@ -59,7 +61,7 @@ class ContactoCrear(generics.CreateAPIView):
         data["email_cliente_ok"] = ok_cliente
         data["email_empresa_ok"] = ok_empresa
         data["email_enviado"] = any_ok
-        data["email_entrega_real"] = bool(any_ok and _correo_saldría_por_smtp())
+        data["email_entrega_real"] = bool(any_ok and _correo_entrega_fuera_consola())
         if err_cliente:
             data["email_error_cliente"] = err_cliente
         if err_empresa:

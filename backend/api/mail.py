@@ -1,4 +1,7 @@
+import json
 import logging
+import urllib.error
+import urllib.request
 from typing import Optional, Tuple
 
 from django.conf import settings
@@ -70,6 +73,61 @@ def _destino_notificacion_empresa() -> str:
     return (getattr(settings, "EMAIL_HOST_USER", None) or "").strip()
 
 
+def _from_para_resend() -> str:
+    rf = getattr(settings, "RESEND_FROM_EMAIL", "") or ""
+    rf = rf.strip()
+    if rf:
+        return rf
+    df = (getattr(settings, "DEFAULT_FROM_EMAIL", "") or "").strip()
+    if df and "no-reply@localhost" not in df.lower():
+        return df
+    return "SIM Consultoría <onboarding@resend.dev>"
+
+
+def _enviar_resend(
+    to: list[str],
+    subject: str,
+    text_body: str,
+    html_body: str,
+    reply_to: Optional[list[str]] = None,
+) -> Tuple[bool, Optional[str]]:
+    api_key = (getattr(settings, "RESEND_API_KEY", None) or "").strip()
+    if not api_key:
+        return False, "RESEND_API_KEY no configurado"
+    from_email = _from_para_resend()
+    payload: dict = {
+        "from": from_email,
+        "to": [t.strip() for t in to if t.strip()],
+        "subject": subject,
+        "html": html_body,
+        "text": text_body,
+    }
+    if reply_to:
+        rt = reply_to[0].strip()
+        if rt:
+            payload["reply_to"] = rt
+    if not payload["to"]:
+        return False, "No hay destinatarios válidos"
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request("https://api.resend.com/emails", data=data, method="POST")
+    req.add_header("Authorization", f"Bearer {api_key}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            resp.read()
+        return True, None
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            err = json.loads(raw)
+            msg = err.get("message", raw)
+        except json.JSONDecodeError:
+            msg = raw or str(exc)
+        return False, f"Resend: {msg}"
+    except OSError as exc:
+        return False, _mensaje_error_envio(exc)
+
+
 def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool, Optional[str]]:
     marca = getattr(settings, "SIM_MARCA", "SIM")
     ctx = {
@@ -88,6 +146,8 @@ def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool
     except Exception as exc:
         logger.exception("Error al renderizar plantilla de correo (cliente)")
         return False, str(exc)
+    if getattr(settings, "EMAIL_USE_RESEND", False):
+        return _enviar_resend(to=to, subject=subject, text_body=text_body, html_body=html_body)
     msg = EmailMultiAlternatives(subject, text_body, from_email, to)
     msg.attach_alternative(html_body, "text/html")
     try:
@@ -122,6 +182,14 @@ def enviar_notificacion_empresa(instance: MensajeContacto) -> Tuple[bool, Option
     except Exception as exc:
         logger.exception("Error al renderizar plantilla de correo (empresa)")
         return False, str(exc)
+    if getattr(settings, "EMAIL_USE_RESEND", False):
+        return _enviar_resend(
+            to=to,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            reply_to=[instance.correo],
+        )
     msg = EmailMultiAlternatives(
         subject,
         text_body,
