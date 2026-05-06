@@ -251,6 +251,12 @@ def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool
     http = _intentar_envio_https(to=to, subject=subject, text_body=text_body, html_body=html_body)
     if http is not None:
         return http
+    if getattr(settings, "CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK", False):
+        return (
+            False,
+            "SMTP no sale bien desde Railway: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL) en Railway, "
+            "o SENDGRID_*; o CONTACT_MAIL_ALLOW_SMTP=1 si tienes SMTP comprobado.",
+        )
     msg = EmailMultiAlternatives(subject, text_body, from_email, to)
     msg.attach_alternative(html_body, "text/html")
     try:
@@ -294,6 +300,12 @@ def enviar_notificacion_empresa(instance: MensajeContacto) -> Tuple[bool, Option
     )
     if http is not None:
         return http
+    if getattr(settings, "CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK", False):
+        return (
+            False,
+            "SMTP no sale bien desde Railway: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL) en Railway, "
+            "o SENDGRID_*; o CONTACT_MAIL_ALLOW_SMTP=1 si tienes SMTP comprobado.",
+        )
     msg = EmailMultiAlternatives(
         subject,
         text_body,

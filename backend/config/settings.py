@@ -206,6 +206,19 @@ else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 _use_smtp = "smtp" in EMAIL_BACKEND.lower()
+
+_allow_smtp_contacto = (
+    os.getenv("CONTACT_MAIL_ALLOW_SMTP", "").strip().lower() in ("1", "true", "yes")
+)
+CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK = (
+    _on_railway
+    and not DEBUG
+    and not EMAIL_USE_RESEND
+    and not EMAIL_USE_SENDGRID
+    and _use_smtp
+    and not _allow_smtp_contacto
+)
+
 if _use_smtp:
     EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com").strip()
     _smtp_force_ipv4 = os.getenv("EMAIL_SMTP_FORCE_IPV4", "").lower() in ("1", "true", "yes")
