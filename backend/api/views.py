@@ -14,6 +14,8 @@ from .serializers import MensajeContactoSerializer
 def _correo_entrega_fuera_consola() -> bool:
     if getattr(settings, "EMAIL_USE_RESEND", False):
         return True
+    if getattr(settings, "EMAIL_USE_SENDGRID", False):
+        return True
     backend = (getattr(settings, "EMAIL_BACKEND", "") or "").lower()
     if "console" in backend or "dummy" in backend:
         return False

@@ -171,6 +171,10 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "").strip()
 RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "").strip()
 EMAIL_USE_RESEND = bool(RESEND_API_KEY) and not _force_console
 
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "").strip()
+SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "").strip()
+EMAIL_USE_SENDGRID = bool(SENDGRID_API_KEY) and not _force_console
+
 if _force_console:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 elif _has_smtp_creds:

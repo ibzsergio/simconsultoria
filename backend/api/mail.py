@@ -2,6 +2,7 @@ import json
 import logging
 import urllib.error
 import urllib.request
+from email.utils import parseaddr
 from typing import Optional, Tuple
 
 from django.conf import settings
@@ -128,6 +129,107 @@ def _enviar_resend(
         return False, _mensaje_error_envio(exc)
 
 
+def _from_nombre_correo(cadena: str) -> tuple[str, str]:
+    name, addr = parseaddr((cadena or "").strip())
+    return (name.strip(), addr.strip())
+
+
+def _from_para_sendgrid() -> tuple[str, str]:
+    raw = (getattr(settings, "SENDGRID_FROM_EMAIL", None) or "").strip()
+    if not raw:
+        raw = (getattr(settings, "DEFAULT_FROM_EMAIL", None) or "").strip()
+    name, addr = _from_nombre_correo(raw)
+    if addr:
+        return name, addr
+    return "", ""
+
+
+def _enviar_sendgrid(
+    to: list[str],
+    subject: str,
+    text_body: str,
+    html_body: str,
+    reply_to: Optional[list[str]] = None,
+) -> Tuple[bool, Optional[str]]:
+    api_key = (getattr(settings, "SENDGRID_API_KEY", None) or "").strip()
+    if not api_key:
+        return False, "SENDGRID_API_KEY no configurado"
+    from_name, from_addr = _from_para_sendgrid()
+    if not from_addr:
+        return False, (
+            "SENDGRID_FROM_EMAIL o DEFAULT_FROM_EMAIL debe incluir un correo verificado en SendGrid, "
+            'p. ej. "SIM Consultoría <notificaciones@tudominio.com>".'
+        )
+    recipients = [{"email": t.strip()} for t in to if t.strip()]
+    if not recipients:
+        return False, "No hay destinatarios válidos"
+    payload: dict = {
+        "personalizations": [{"to": recipients}],
+        "from": {"email": from_addr, **({"name": from_name} if from_name else {})},
+        "subject": subject,
+        "content": [
+            {"type": "text/plain", "value": text_body},
+            {"type": "text/html", "value": html_body},
+        ],
+    }
+    if reply_to and reply_to[0].strip():
+        payload["reply_to"] = {"email": reply_to[0].strip()}
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request("https://api.sendgrid.com/v3/mail/send", data=data, method="POST")
+    req.add_header("Authorization", f"Bearer {api_key}")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            resp.read()
+        return True, None
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        try:
+            err = json.loads(raw)
+            msgs = []
+            for e in err.get("errors", []):
+                if isinstance(e, dict) and "message" in e:
+                    msgs.append(str(e["message"]))
+            msg = "; ".join(msgs) if msgs else err.get("message", raw)
+        except json.JSONDecodeError:
+            msg = raw or str(exc)
+        return False, f"SendGrid: {msg}"
+    except OSError as exc:
+        return False, _mensaje_error_envio(exc)
+
+
+def _intentar_envio_https(
+    *,
+    to: list[str],
+    subject: str,
+    text_body: str,
+    html_body: str,
+    reply_to: Optional[list[str]] = None,
+) -> Optional[Tuple[bool, Optional[str]]]:
+    use_re = getattr(settings, "EMAIL_USE_RESEND", False)
+    use_sg = getattr(settings, "EMAIL_USE_SENDGRID", False)
+    if not use_re and not use_sg:
+        return None
+    errores: list[str] = []
+    if use_re:
+        ok, err = _enviar_resend(
+            to=to, subject=subject, text_body=text_body, html_body=html_body, reply_to=reply_to
+        )
+        if ok:
+            return True, None
+        if err:
+            errores.append(str(err))
+    if use_sg:
+        ok2, err2 = _enviar_sendgrid(
+            to=to, subject=subject, text_body=text_body, html_body=html_body, reply_to=reply_to
+        )
+        if ok2:
+            return True, None
+        if err2:
+            errores.append(str(err2))
+    return False, " | ".join(errores) if errores else "No se pudo enviar por API de correo"
+
+
 def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool, Optional[str]]:
     marca = getattr(settings, "SIM_MARCA", "SIM")
     ctx = {
@@ -146,8 +248,9 @@ def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool
     except Exception as exc:
         logger.exception("Error al renderizar plantilla de correo (cliente)")
         return False, str(exc)
-    if getattr(settings, "EMAIL_USE_RESEND", False):
-        return _enviar_resend(to=to, subject=subject, text_body=text_body, html_body=html_body)
+    http = _intentar_envio_https(to=to, subject=subject, text_body=text_body, html_body=html_body)
+    if http is not None:
+        return http
     msg = EmailMultiAlternatives(subject, text_body, from_email, to)
     msg.attach_alternative(html_body, "text/html")
     try:
@@ -182,14 +285,15 @@ def enviar_notificacion_empresa(instance: MensajeContacto) -> Tuple[bool, Option
     except Exception as exc:
         logger.exception("Error al renderizar plantilla de correo (empresa)")
         return False, str(exc)
-    if getattr(settings, "EMAIL_USE_RESEND", False):
-        return _enviar_resend(
-            to=to,
-            subject=subject,
-            text_body=text_body,
-            html_body=html_body,
-            reply_to=[instance.correo],
-        )
+    http = _intentar_envio_https(
+        to=to,
+        subject=subject,
+        text_body=text_body,
+        html_body=html_body,
+        reply_to=[instance.correo],
+    )
+    if http is not None:
+        return http
     msg = EmailMultiAlternatives(
         subject,
         text_body,
