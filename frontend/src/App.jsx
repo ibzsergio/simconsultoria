@@ -3,7 +3,12 @@ import { useEffect, useState } from "react";
 const MSG_EXITO = "mensaje enviado";
 const MSG_EXITO_MS = 4500;
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
+/** Desarrollo: VITE_API_URL opcional (p. ej. API remota); si vacío → proxy Vite `/api`. Producción Netlify → siempre mismo origen (`/api/...`; rewrite en netlify.toml → Railway). */
+const API_BASE = import.meta.env.PROD
+  ? ""
+  : String(import.meta.env.VITE_API_URL ?? "")
+      .trim()
+      .replace(/\/+$/, "");
 
 function mensajeErrorApi(res, cuerpoCrudo) {
   const raw = (cuerpoCrudo || "").trim();
@@ -73,15 +78,8 @@ export default function App() {
     setFormMsg({ show: false, text: "", variant: "ok" });
     try {
       const base = (API_BASE || "").replace(/\/+$/, "");
-      if (!base) {
-        setFormMsg({
-          show: true,
-          variant: "err",
-          text: "Falta VITE_API_URL en el build de Netlify. En Site settings → Environment variables agrega VITE_API_URL con la URL https de Railway y vuelve a desplegar.",
-        });
-        return;
-      }
-      const res = await fetch(`${base}/api/contacto/`, {
+      const urlContacto = base ? `${base}/api/contacto/` : "/api/contacto/";
+      const res = await fetch(urlContacto, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(body),
@@ -109,7 +107,7 @@ export default function App() {
         variant: "err",
         text: import.meta.env.DEV
           ? `No se pudo conectar con la API (${detalle}). ¿Corre django en :8000 y tienes VITE_API_PROXY_TARGET en vite.config?`
-          : `No se pudo conectar con la API (${detalle}). Verifica VITE_API_URL en Netlify, que Railway esté Online y CORS_ALLOWED_ORIGINS incluya ${typeof window !== "undefined" ? window.location.origin : "tu dominio Netlify"}.`,
+          : `No se pudo enviar (${detalle}). Revisa que el sitio en Netlify esté desplegado con el último build y que el backend en Railway siga Online.`,
       });
     } finally {
       setSending(false);
