@@ -1,5 +1,8 @@
+import logging
+import threading
+
 from django.conf import settings
-from django.db import DatabaseError
+from django.db import DatabaseError, close_old_connections
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, status
@@ -9,6 +12,31 @@ from rest_framework.views import APIView
 from .mail import enviar_correo_confirmacion_contacto, enviar_notificacion_empresa
 from .models import MensajeContacto
 from .serializers import MensajeContactoSerializer
+
+logger = logging.getLogger(__name__)
+
+
+def _enviar_correos_contacto_en_fondo(pk: int) -> None:
+    close_old_connections()
+    try:
+        inst = MensajeContacto.objects.get(pk=pk)
+    except MensajeContacto.DoesNotExist:
+        logger.warning("Contacto %s no existe; no se envían correos.", pk)
+        return
+    try:
+        _ok_c, err_c = enviar_correo_confirmacion_contacto(inst)
+        if err_c:
+            logger.error("Correo al visitante falló: %s", err_c)
+    except Exception:
+        logger.exception("Excepción al enviar correo al visitante")
+    try:
+        _ok_e, err_e = enviar_notificacion_empresa(inst)
+        if err_e:
+            logger.error("Correo a empresa falló: %s", err_e)
+    except Exception:
+        logger.exception("Excepción al enviar correo a empresa")
+    finally:
+        close_old_connections()
 
 
 def _correo_entrega_fuera_consola() -> bool:
@@ -50,24 +78,12 @@ class ContactoCrear(generics.CreateAPIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         inst = serializer.instance
-        try:
-            ok_cliente, err_cliente = enviar_correo_confirmacion_contacto(inst)
-        except Exception as exc:
-            ok_cliente, err_cliente = False, str(exc)
-        try:
-            ok_empresa, err_empresa = enviar_notificacion_empresa(inst)
-        except Exception as exc:
-            ok_empresa, err_empresa = False, str(exc)
-        any_ok = ok_cliente or ok_empresa
+        threading.Thread(
+            target=_enviar_correos_contacto_en_fondo,
+            args=(inst.pk,),
+            daemon=True,
+        ).start()
         data = dict(serializer.data)
-        data["email_cliente_ok"] = ok_cliente
-        data["email_empresa_ok"] = ok_empresa
-        data["email_enviado"] = any_ok
-        data["email_entrega_real"] = bool(any_ok and _correo_entrega_fuera_consola())
-        if err_cliente:
-            data["email_error_cliente"] = err_cliente
-        if err_empresa:
-            data["email_error_empresa"] = err_empresa
-        if err_cliente or err_empresa:
-            data["email_error"] = err_cliente or err_empresa
+        data["email_en_segundo_plano"] = True
+        data["email_entrega_real"] = _correo_entrega_fuera_consola()
         return Response(data, status=status.HTTP_201_CREATED)
