@@ -24,6 +24,11 @@ ALLOWED_HOSTS = [
 if _railway_public and _railway_public not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_railway_public)
 
+# Render: hostname público del servicio (p. ej. simconsultoria-backend.onrender.com)
+_render_external = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
+if _render_external and _render_external not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(_render_external)
+
 # Railway no siempre define RAILWAY_* en todos los runtime; el dominio público casi siempre existe.
 _on_railway = bool(
     os.getenv("RAILWAY_ENVIRONMENT")
