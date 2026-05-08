@@ -3,10 +3,10 @@
   publish = "dist"
   command = "npm run build:netlify"
 
-# Mismo origen en el navegador: evita errores CORS. Netlify reenvía /api/* a Railway.
+# Mismo origen en el navegador: evita errores CORS. Netlify reenvía /api/* a Render.
 [[redirects]]
   from = "/api/*"
-  to = "https://simconsultoria-production.up.railway.app/api/:splat"
+  to = "https://simconsultoria-backend.onrender.com/api/:splat"
   status = 200
   force = true
 

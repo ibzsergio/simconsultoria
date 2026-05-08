@@ -1,3 +1,3 @@
-/api/*  https://simconsultoria-production.up.railway.app/api/:splat  200!
+/api/*  https://simconsultoria-backend.onrender.com/api/:splat  200!
 /*      /index.html                                        200
 
