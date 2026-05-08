@@ -43,14 +43,16 @@ def _mensaje_error_envio(exc: BaseException) -> str:
     low = raw.lower()
     if "network is unreachable" in low or "errno 101" in low.replace(" ", ""):
         return (
-            "No se pudo conectar al servidor SMTP (red inalcanzable). En hosting a veces falla IPv6 o el puerto. "
-            "Prueba en Railway: EMAIL_SMTP_FORCE_IPV4=1 y/o EMAIL_PORT=465 con EMAIL_USE_SSL=1 y EMAIL_USE_TLS=0; "
-            "o usa un proveedor SMTP de transaccional (SendGrid/Mailgun/Resend)."
+            "No se pudo conectar al servidor SMTP (red inalcanzable). En Render/u otros hostings a veces falla IPv6 o el puerto. "
+            "Prueba: EMAIL_SMTP_FORCE_IPV4=1 y/o EMAIL_PORT=465 con EMAIL_USE_SSL=1 y EMAIL_USE_TLS=0; "
+            "o usa API de correo (Resend/SendGrid)."
         )
     if "timed out" in low or "timeout" in low:
         return (
-            "Tiempo de espera agotado al conectar con SMTP. Revisa EMAIL_HOST/EMAIL_PORT en Railway, firewall del "
-            "proveedor y baja EMAIL_TIMEOUT si hace falta."
+            "Tiempo de espera agotado al conectar con SMTP (desde el hosting a Gmail suele bloquearse el puerto o la ruta). "
+            "En Render: prueba EMAIL_HOST=smtp.gmail.com, EMAIL_SMTP_FORCE_IPV4=1, y puerto 465 "
+            "(EMAIL_PORT=465, EMAIL_USE_SSL=True, EMAIL_USE_TLS=False); si sigue igual, Gmail por SMTP no sale bien desde ese "
+            "servidor — usa RESEND_API_KEY + RESEND_FROM_EMAIL."
         )
     if (
         "534" in raw
@@ -277,7 +279,7 @@ def enviar_correo_confirmacion_contacto(instance: MensajeContacto) -> Tuple[bool
     if _debe_evitar_smtp():
         return (
             False,
-            "SMTP no sale bien desde Railway: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL) en Railway, "
+            "SMTP no sale bien desde hosting: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL), "
             "o SENDGRID_*; o CONTACT_MAIL_ALLOW_SMTP=1 si tienes SMTP comprobado.",
         )
     msg = EmailMultiAlternatives(subject, text_body, from_email, to)
@@ -326,7 +328,7 @@ def enviar_notificacion_empresa(instance: MensajeContacto) -> Tuple[bool, Option
     if _debe_evitar_smtp():
         return (
             False,
-            "SMTP no sale bien desde Railway: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL) en Railway, "
+            "SMTP no sale bien desde hosting: configura RESEND_API_KEY (+ RESEND_FROM_EMAIL), "
             "o SENDGRID_*; o CONTACT_MAIL_ALLOW_SMTP=1 si tienes SMTP comprobado.",
         )
     msg = EmailMultiAlternatives(
