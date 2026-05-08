@@ -105,6 +105,7 @@ En desarrollo Vite ya proxea `/api` al backend (`vite.config.js`).
    - `DJANGO_ALLOWED_HOSTS=tu-dominio-backend`
    - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
    - `CORS_ALLOWED_ORIGINS=https://tu-frontend.netlify.app`
+   - **Correo:** en Railway/Netlify Gmail por SMTP suele fallar (`Network unreachable`). Sin `RESEND_API_KEY`/`SENDGRID_*`, el proyecto fuerza **`EMAIL_BACKEND` consola** (el formulario sí guarda; los correos van a logs salvo API). Opcional: `RESEND_API_KEY` + `RESEND_FROM_EMAIL`, o `CONTACT_MAIL_ALLOW_SMTP=1` si tienes SMTP comprobado en el host.
 5. Ejecutar migraciones en el entorno:
    - `python manage.py migrate`
 

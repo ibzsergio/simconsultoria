@@ -31,9 +31,11 @@ def _debe_evitar_smtp() -> bool:
         os.getenv("RAILWAY_ENVIRONMENT")
         or os.getenv("RAILWAY_PROJECT_ID")
         or os.getenv("RAILWAY_SERVICE_ID")
+        or os.getenv("RAILWAY_PUBLIC_DOMAIN")
     )
     allow = os.getenv("CONTACT_MAIL_ALLOW_SMTP", "").strip().lower() in ("1", "true", "yes")
-    return on_railway and not allow
+    produccion = not getattr(settings, "DEBUG", True)
+    return (on_railway or produccion) and not allow
 
 
 def _mensaje_error_envio(exc: BaseException) -> str:

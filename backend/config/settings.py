@@ -24,10 +24,12 @@ ALLOWED_HOSTS = [
 if _railway_public and _railway_public not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(_railway_public)
 
+# Railway no siempre define RAILWAY_* en todos los runtime; el dominio público casi siempre existe.
 _on_railway = bool(
     os.getenv("RAILWAY_ENVIRONMENT")
     or os.getenv("RAILWAY_PROJECT_ID")
     or os.getenv("RAILWAY_SERVICE_ID")
+    or os.getenv("RAILWAY_PUBLIC_DOMAIN")
 )
 _railway_host_suffix = ".up.railway.app"
 if _on_railway and _railway_host_suffix not in ALLOWED_HOSTS:
@@ -96,6 +98,18 @@ if _database_url:
             ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "true").lower() in ("1", "true", "yes"),
         )
     }
+    # Evita que una conexión a DB colgada termine en 504 del proxy (Netlify/Railway).
+    # Si Postgres tarda o está mal configurado, preferimos fallar rápido y devolver JSON de error.
+    try:
+        _connect_timeout = int(os.getenv("DATABASE_CONNECT_TIMEOUT", "5"))
+    except ValueError:
+        _connect_timeout = 5
+    if _connect_timeout > 0:
+        eng = (DATABASES.get("default", {}) or {}).get("ENGINE", "")
+        if "postgres" in eng:
+            DATABASES["default"].setdefault("OPTIONS", {})
+            # Postgres/libpq usa connect_timeout en segundos.
+            DATABASES["default"]["OPTIONS"].setdefault("connect_timeout", _connect_timeout)
 elif _use_sqlite:
     DATABASES = {
         "default": {
@@ -193,6 +207,10 @@ SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY", "").strip()
 SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL", "").strip()
 EMAIL_USE_SENDGRID = bool(SENDGRID_API_KEY) and not _force_console
 
+_allow_smtp_contacto = (
+    os.getenv("CONTACT_MAIL_ALLOW_SMTP", "").strip().lower() in ("1", "true", "yes")
+)
+
 if _force_console:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 elif _has_smtp_creds:
@@ -205,15 +223,19 @@ elif _explicit_email_backend:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-_use_smtp = "smtp" in EMAIL_BACKEND.lower()
+# En Railway o con DJANGO_DEBUG=False: sin Resend/SendGrid, Gmail/smtp suele dar «Network unreachable»
+# y cuelga el worker (504 / WORKER TIMEOUT). Forzar consola salvo CONTACT_MAIL_ALLOW_SMTP=1.
+_hosting_sin_api_correo = (_on_railway or not DEBUG) and not EMAIL_USE_RESEND and not EMAIL_USE_SENDGRID
+if _hosting_sin_api_correo and not _allow_smtp_contacto and "smtp" in EMAIL_BACKEND.lower():
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-_allow_smtp_contacto = (
-    os.getenv("CONTACT_MAIL_ALLOW_SMTP", "").strip().lower() in ("1", "true", "yes")
-)
-# En Railway sin API de correo (Resend/SendGrid), el fallback SMTP suele colgar (IPv6/firewall) y provoca 504.
-# No depender de DEBUG: un DJANGO_DEBUG=True mal puesto en Railway reactivaba SMTP y bloqueaba el worker.
+_use_smtp = "smtp" in EMAIL_BACKEND.lower()
+# Sin Resend/SendGrid, SMTP (p. ej. Gmail) desde hosting suele colgar o tardar minutos → 504 en el proxy.
+# Bloquear SMTP salvo CONTACT_MAIL_ALLOW_SMTP=1 si tienes SMTP comprobado.
+# - En Railway: siempre que no haya API de correo.
+# - Con DJANGO_DEBUG=False aunque falten vars de Railway (evita Gmail en prod por error).
 CONTACT_MAIL_BLOQUEA_SMTP_FALLBACK = (
-    _on_railway
+    (_on_railway or not DEBUG)
     and not EMAIL_USE_RESEND
     and not EMAIL_USE_SENDGRID
     and _use_smtp

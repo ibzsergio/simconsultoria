@@ -2,7 +2,7 @@ import logging
 import threading
 
 from django.conf import settings
-from django.db import DatabaseError, close_old_connections
+from django.db import DatabaseError, close_old_connections, transaction
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import generics, status
@@ -77,12 +77,16 @@ class ContactoCrear(generics.CreateAPIView):
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        inst = serializer.instance
-        threading.Thread(
-            target=_enviar_correos_contacto_en_fondo,
-            args=(inst.pk,),
-            daemon=True,
-        ).start()
+        pk = serializer.instance.pk
+
+        def _iniciar_correo_tras_commit() -> None:
+            threading.Thread(
+                target=_enviar_correos_contacto_en_fondo,
+                args=(pk,),
+                daemon=True,
+            ).start()
+
+        transaction.on_commit(_iniciar_correo_tras_commit)
         data = dict(serializer.data)
         data["email_en_segundo_plano"] = True
         data["email_entrega_real"] = _correo_entrega_fuera_consola()
