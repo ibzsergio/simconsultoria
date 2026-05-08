@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: simconsultoria-backend
+    env: docker
+    plan: free
+    # Usa el Dockerfile de la raíz (copia backend/).
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "localhost,127.0.0.1"
+      # Ajusta al dominio real de Netlify cuando lo tengas.
+      - key: FRONTEND_ORIGIN
+        value: "https://simconsultoriaestatica.netlify.app"
+      # Evita que SMTP cuelgue en hosting (usa Resend/SendGrid si quieres correos reales).
+      - key: EMAIL_FORCE_CONSOLE
+        value: "1"
+      - key: DATABASE_CONNECT_TIMEOUT
+        value: "5"
+      # RECOMENDADO: define tu secreto en Render (no lo dejes así)
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+
+databases:
+  - name: simconsultoria-db
+    plan: free
+    postgresMajorVersion: 16
+

@@ -93,21 +93,22 @@ En desarrollo Vite ya proxea `/api` al backend (`vite.config.js`).
    - `VITE_API_URL=https://TU_BACKEND_PUBLICO`
 5. Usar `netlify.toml` incluido.
 
-### Backend en Railway o Render
+### Backend en Render (recomendado)
 
-1. Servicio Python apuntando a carpeta `backend`.
-2. Instalar con `pip install -r requirements.txt`.
-3. Start command:
-   - `gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2`
-4. Variables de entorno:
-   - `DJANGO_SECRET_KEY`
-   - `DJANGO_DEBUG=False`
-   - `DJANGO_ALLOWED_HOSTS=tu-dominio-backend`
-   - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`
-   - `CORS_ALLOWED_ORIGINS=https://tu-frontend.netlify.app`
-   - **Correo:** en Railway/Netlify Gmail por SMTP suele fallar (`Network unreachable`). Sin `RESEND_API_KEY`/`SENDGRID_*`, el proyecto fuerza **`EMAIL_BACKEND` consola** (el formulario sí guarda; los correos van a logs salvo API). Opcional: `RESEND_API_KEY` + `RESEND_FROM_EMAIL`, o `CONTACT_MAIL_ALLOW_SMTP=1` si tienes SMTP comprobado en el host.
-5. Ejecutar migraciones en el entorno:
-   - `python manage.py migrate`
+1. En Render, usa **Blueprint** e importa el repo (o carpeta) con el archivo `render.yaml`.
+2. Render creará:
+   - un **Web Service** con Docker (usa `Dockerfile` en la raíz)
+   - una **base Postgres**
+3. En Render → Web Service → **Environment**:
+   - confirma `DJANGO_DEBUG=False`
+   - pon `DJANGO_ALLOWED_HOSTS` incluyendo tu host de Render, por ejemplo: `simconsultoria-backend.onrender.com`
+   - deja `FRONTEND_ORIGIN=https://simconsultoriaestatica.netlify.app`
+   - Render inyecta `DATABASE_URL` cuando conectas la base
+4. En Netlify, actualiza el proxy `/api/*` para apuntar al dominio de Render:
+   - `https://TU-SERVICIO.onrender.com/api/:splat`
+5. Correo:
+   - Gmail SMTP en hosting suele fallar (`Network unreachable`). Para entregar EC0727, el formulario guarda y responde OK aun si `EMAIL_FORCE_CONSOLE=1`.
+   - Si quieres correos reales, usa `RESEND_API_KEY` + `RESEND_FROM_EMAIL` (recomendado).
 
 ## Nota
 
